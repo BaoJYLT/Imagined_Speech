@@ -1,4 +1,4 @@
-# Imaged_Speech
+# Imagined_Speech
 ZJU-IIP course project, based on https://osf.io/pq7vb/ Track #3, classify 5 EEG signal.
 
 ## 结构建议
