@@ -1,5 +1,5 @@
 from PyQt5.QtWidgets import (QDialog, QLabel, QLineEdit, QPushButton, 
-                            QVBoxLayout, QMessageBox)
+                            QVBoxLayout, QMessageBox, QMainWindow)
 from PyQt5.QtCore import Qt
 import os
 import re
@@ -62,6 +62,9 @@ class RegisterDialog(QDialog):
         # 信息提示框，通知登录成功
         QMessageBox.information(self, 'Success', 
                               f'User {user_id} Log in successfully!')
+        # 通知父窗口更新
+        if isinstance(self.parent(), QMainWindow):
+            self.parent().update_eeg_display(user_id)
         self.accept()
         
     def get_current_user(self):

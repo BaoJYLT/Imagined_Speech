@@ -1,18 +1,22 @@
 import sys
+import numpy as np
 from PyQt5.QtWidgets import *
 from PyQt5.QtCore import *
 from PyQt5.QtGui import *
+
+from utils.plot_utils import EEGCanvas
 
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
         self.current_user = None
+        self.eeg_canvas = None
         self.initUI()
         
     def initUI(self):
         # 设置窗口标题和大小
-        self.setWindowTitle('Imaged Speech Classification')
-        self.setGeometry(100, 100, 800, 600) # 左上x,y,宽度，高度
+        self.setWindowTitle('Imagined Speech Classification')
+        self.setGeometry(100, 100, 1600, 1200) # 左上x,y,宽度，高度
         
         # 创建主widget
         main_widget = QWidget()
@@ -20,10 +24,11 @@ class MainWindow(QMainWindow):
         
         # 创建布局
         layout = QVBoxLayout()
+        layout.setContentsMargins(10, 10, 10, 10)  # 设置边距
         main_widget.setLayout(layout)
         
         # 添加状态栏显示用户信息
-        self.statusBar().showMessage('Current User: Group us! | Mode: Main')
+        self.statusBar().showMessage('Current User: Group us!   |        Mode: Main')
         
         # 创建菜单栏
         self.create_menu_bar()
@@ -39,12 +44,50 @@ class MainWindow(QMainWindow):
         
     def create_plot_area(self):
         # 使用matplotlib创建绘图区域
+        '''
         plot_label = QLabel('EEG Plot Area')
         plot_label.setStyleSheet('background-color: white; border: 1px solid black;')
         plot_label.setMinimumHeight(400)  # 设置最小高度
         plot_label.setAlignment(Qt.AlignCenter)
         self.centralWidget().layout().addWidget(plot_label)
-        
+        '''
+        plot_widget = QWidget()
+        plot_layout = QVBoxLayout()
+        plot_widget.setLayout(plot_layout)
+        self.eeg_canvas = EEGCanvas(self)# 创建plt画布
+        plot_layout.addWidget(self.eeg_canvas)
+
+        # 设置固定高度为主窗口高度的0.75
+        height = int(self.height() * 0.75)  # 获取主窗口高度的60%
+        plot_widget.setFixedHeight(height)
+        # 添加到主布局
+        main_layout = self.centralWidget().layout()
+        main_layout.addWidget(plot_widget)
+        # 确保窗口大小变化时EEG显示区域也相应调整
+        self.resizeEvent = lambda event: plot_widget.setFixedHeight(int(self.height() * 0.75))
+        '''
+        # 设置绘图区域的大小策略
+        plot_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
+        # 将绘图区域添加到主布局
+        main_layout = self.centralWidget().layout()
+        main_layout.addWidget(plot_widget, stretch=50)  # 设置stretch为75表示占用75%的空间
+        # self.centralWidget().layout().addWidget(self.eeg_canvas)'
+        '''
+
+    def update_eeg_display(self, user_id):
+        """更新EEG显示区域"""
+        try:
+            # 加载用户的训练数据
+            data_path = f'Training_set_npy/Data_Sample{user_id}_data.npy'
+            eeg_data = np.load(data_path)
+            
+            # 显示第一个trial的数据!
+            first_trial = eeg_data[0]  # shape: (channels, samples)
+            self.eeg_canvas.plot_eeg(first_trial, user_id=user_id)
+            
+        except Exception as e:
+            QMessageBox.warning(self, 'Error', f'加载EEG数据失败: {str(e)}')
+
     def create_control_panel(self):
         # 创建控制按钮面板
         control_panel = QWidget()
@@ -72,7 +115,7 @@ class MainWindow(QMainWindow):
         dialog = RegisterDialog(self)
         if dialog.exec_() == QDialog.Accepted:
             self.current_user = dialog.get_current_user()   # 当前user
-            self.statusBar().showMessage(f'Current User: {self.current_user} | Mode: Logged In')
+            self.statusBar().showMessage(f'Current User:  {self.current_user}       |       Mode: Logged In')
             # 可以在这里启用其他按钮
             self.enable_user_functions()
 

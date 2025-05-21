@@ -37,10 +37,11 @@ project/
 │
 ├── models/                 # 存储训练好的模型
 │   └── user_models/       
-│
+│ -->
 ├── utils/
-│   ├── __init__.py
-│   ├── data_loader.py     # 数据加载
+<!-- │   ├── __init__.py -->
+|   ├── plot_utils.py       # EEG 可视化
+<!-- │   ├── data_loader.py     # 数据加载
 │   ├── model_manager.py   # 模型管理
 │   └── plot_utils.py      # 绘图工具 -->
 │
