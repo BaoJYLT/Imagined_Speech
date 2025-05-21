@@ -29,7 +29,7 @@ project/
 project/
 │
 ├── ui/
-<!-- │   ├── __init__.py -->
+│   ├── __init__.py
 │   ├── main_window.py      # 主窗口
 │   ├── register_dialog.py  # 注册对话框
 <!-- │   ├── train_widget.py     # 训练界面

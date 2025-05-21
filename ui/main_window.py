@@ -6,12 +6,13 @@ from PyQt5.QtGui import *
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
+        self.current_user = None
         self.initUI()
         
     def initUI(self):
         # 设置窗口标题和大小
         self.setWindowTitle('Imaged Speech Classification')
-        self.setGeometry(100, 100, 800, 600)
+        self.setGeometry(100, 100, 800, 600) # 左上x,y,宽度，高度
         
         # 创建主widget
         main_widget = QWidget()
@@ -22,7 +23,7 @@ class MainWindow(QMainWindow):
         main_widget.setLayout(layout)
         
         # 添加状态栏显示用户信息
-        self.statusBar().showMessage('Current User: None | Mode: None')
+        self.statusBar().showMessage('Current User: Group us! | Mode: Main')
         
         # 创建菜单栏
         self.create_menu_bar()
@@ -51,6 +52,8 @@ class MainWindow(QMainWindow):
         
         # 创建按钮
         register_btn = QPushButton('Register/Login')
+        register_btn.clicked.connect(self.show_register_dialog)
+
         train_btn = QPushButton('Train')
         model_list_btn = QPushButton('Model List')
         test_btn = QPushButton('Test')
@@ -62,3 +65,17 @@ class MainWindow(QMainWindow):
             
         control_panel.setLayout(control_layout)
         self.centralWidget().layout().addWidget(control_panel)
+
+    # main window 注册流程控制
+    def show_register_dialog(self):
+        from .register_dialog import RegisterDialog
+        dialog = RegisterDialog(self)
+        if dialog.exec_() == QDialog.Accepted:
+            self.current_user = dialog.get_current_user()   # 当前user
+            self.statusBar().showMessage(f'Current User: {self.current_user} | Mode: Logged In')
+            # 可以在这里启用其他按钮
+            self.enable_user_functions()
+
+    def enable_user_functions(self):
+        # 登录后的功能启用逻辑
+        pass
