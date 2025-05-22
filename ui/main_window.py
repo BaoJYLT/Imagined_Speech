@@ -1,5 +1,6 @@
 import sys
 import numpy as np
+import os
 from PyQt5.QtWidgets import *
 from PyQt5.QtCore import *
 from PyQt5.QtGui import *
@@ -11,6 +12,8 @@ class MainWindow(QMainWindow):
         super().__init__()
         self.current_user = None
         self.eeg_canvas = None
+        self.user_name = None
+        self.user_id = None
         self.initUI()
         
     def initUI(self):
@@ -98,6 +101,8 @@ class MainWindow(QMainWindow):
         register_btn.clicked.connect(self.show_register_dialog)
 
         train_btn = QPushButton('Train')
+        train_btn.clicked.connect(self.show_train_dialog)
+        
         model_list_btn = QPushButton('Model List')
         test_btn = QPushButton('Test')
         performance_btn = QPushButton('Performance') # model performance
@@ -114,11 +119,55 @@ class MainWindow(QMainWindow):
         from .register_dialog import RegisterDialog
         dialog = RegisterDialog(self)
         if dialog.exec_() == QDialog.Accepted:
-            self.current_user = dialog.get_current_user()   # 当前user
-            self.statusBar().showMessage(f'Current User:  {self.current_user}       |       Mode: Logged In')
+            self.user_name = dialog.get_user_name()
+            self.statusBar().showMessage(f'Current User: {self.user_name}')
+            # 根据功能修改
+            # self.current_user = dialog.get_current_user()   # 当前user
+            # self.statusBar().showMessage(f'Current User:  {self.current_user}       |       Mode: Logged In')
             # 可以在这里启用其他按钮
             self.enable_user_functions()
 
     def enable_user_functions(self):
         # 登录后的功能启用逻辑
         pass
+
+    # Train设置窗口
+    def show_train_dialog(self):
+        from .train_dialog import TrainDialog
+        if not self.user_name:
+            QMessageBox.warning(self, 'Error', 'Please register first')
+            return
+            
+        dialog = TrainDialog(self.user_name, self)
+        if dialog.exec_() == QDialog.Accepted:
+            self.user_id = dialog.user_id
+            self.train_model(dialog.file_path)
+
+    # Train模型调用
+    def train_model(self, file_path):
+        # 模型训练代码
+
+        from .savemodel_dialog import SaveModelDialog
+        save_dialog = SaveModelDialog(self.user_name, self.user_id, self)
+        if save_dialog.exec_() == QDialog.Accepted:
+            # 保存模型
+            model_path = os.path.join(save_dialog.save_path, 
+                                    f'{save_dialog.model_name}.pth')
+            # ...save model code...
+            QMessageBox.information(self, 'Success', 
+                                  f'Model saved to:\n{model_path}')
+            
+    def show_test_dialog(self):
+        if not self.user_name:
+            QMessageBox.warning(self, 'Error', 'Please register first')
+            return
+            
+        file_path, _ = QFileDialog.getOpenFileName(
+            self,
+            "Select Test Data",
+            "",
+            "NPY Files (*.npy)"
+        )
+        
+        if file_path:
+            self.test_model(file_path)

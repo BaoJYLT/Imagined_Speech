@@ -14,31 +14,40 @@ class RegisterDialog(QDialog):
     def __init__(self, parent=None):
         super().__init__(parent)
         self.initUI()
-        self.current_user = None
+        self.user_name = None
+        # self.current_user = None
         
     def initUI(self):
-        self.setWindowTitle('用户注册/登录')
+        self.setWindowTitle('Registeration')
         self.setModal(True) # 设置为模态窗口，阻塞主界面
         
         # 创建垂直布局，放置控件
         layout = QVBoxLayout()
         
         # 创建输入框和标签
-        self.user_label = QLabel('User ID (01-99):', self)
-        self.user_input = QLineEdit(self) # ID输入框 提示示例ID
-        self.user_input.setPlaceholderText('ID: 01')
+        # self.user_label = QLabel('User ID (01-99):', self)
+        # self.user_input = QLineEdit(self) # ID输入框 提示示例ID
+        # self.user_input.setPlaceholderText('ID: 01')
+
+        self.name_label = QLabel('Username (letters and numbers):', self)
+        self.name_input = QLineEdit(self) # ID输入框 提示示例ID
+        self.name_input.setPlaceholderText('e.g. user123')
         
         # 创建OK按钮，用connect将这个按钮绑定validate_user方法
         self.confirm_button = QPushButton('OK', self)
         self.confirm_button.clicked.connect(self.validate_user)
         
         # 添加组件到布局
-        layout.addWidget(self.user_label)
-        layout.addWidget(self.user_input)
+        # layout.addWidget(self.user_label)
+        # layout.addWidget(self.user_input)
+        # layout.addWidget(self.confirm_button)
+        layout.addWidget(self.name_label)
+        layout.addWidget(self.name_input)
         layout.addWidget(self.confirm_button)
         
         self.setLayout(layout)
-        
+
+    '''    
     def validate_user(self):
         user_id = self.user_input.text().strip() # 去除前后空白的用户输入
         
@@ -66,6 +75,23 @@ class RegisterDialog(QDialog):
         if isinstance(self.parent(), QMainWindow):
             self.parent().update_eeg_display(user_id)
         self.accept()
-        
-    def get_current_user(self):
-        return self.current_user
+    '''
+    
+    def validate_user(self):
+        name = self.name_input.text().strip()
+        # 检查用户名格式：数字+字母
+        if not re.match(r'^[a-zA-Z0-9]+$', name):
+            QMessageBox.warning(self, 'Invalid Input', 
+                              'Username can only contain letters and numbers')
+            return
+            
+        self.user_name = name
+        QMessageBox.information(self, 'Success', 
+                              f'Welcome, {name}!')
+        self.accept()
+
+    # def get_current_user(self):
+    #     return self.current_user
+
+    def get_user_name(self):
+        return self.user_name

@@ -32,18 +32,18 @@ project/
 │   ├── __init__.py
 │   ├── main_window.py      # 主窗口
 │   ├── register_dialog.py  # 注册对话框
-<!-- │   ├── train_widget.py     # 训练界面
-│   └── test_widget.py      # 测试界面
+│   ├── train_dialog.py     # 训练界面
+|   ├── saveModel_dialog.py  # 注册对话框
+<!-- │   └── test_widget.py      # 测试界面 -->
 │
 ├── models/                 # 存储训练好的模型
 │   └── user_models/       
-│ -->
+│
 ├── utils/
 <!-- │   ├── __init__.py -->
-|   ├── plot_utils.py       # EEG 可视化
 <!-- │   ├── data_loader.py     # 数据加载
-│   ├── model_manager.py   # 模型管理
-│   └── plot_utils.py      # 绘图工具 -->
+│   ├── model_manager.py   # 模型管理 -->
+│   └── plot_utils.py      # EEG可视化绘图工具
 │
 <!-- ├── config.py              # 配置文件
 ├── main.py               # 程序入口 -->
