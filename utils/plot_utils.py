@@ -41,7 +41,7 @@ class EEGCanvas(FigureCanvasQTAgg):
         
         title = 'EEG Signal Display'
         if user_id:
-            title = f'User {user_id} EEG Signal Display'
+            title = f'User {user_id} First Trail EEG Signal'
         self.axes.set_title(title, fontsize=14, pad=5)
         self.axes.grid(True)
         # self.axes.legend(fontsize=10)

@@ -124,79 +124,80 @@ def train_model(model, train_loader, val_loader, device, epochs=100, patience=15
         model.load_state_dict(best_state)
     return model
 
-# set_seed(42) # 0.16
-set_seed(27) # 0.28
-# set_seed(48) # 0.26
-os.makedirs("Training_set_preprocess", exist_ok=True)
-os.makedirs("Validation_set_preprocess", exist_ok=True)
+if __name__ == '__main__':
+    # set_seed(42) # 0.16
+    set_seed(27) # 0.28
+    # set_seed(48) # 0.26
+    os.makedirs("Training_set_preprocess", exist_ok=True)
+    os.makedirs("Validation_set_preprocess", exist_ok=True)
 
-train_data, train_labels = preprocess_file(
-    "Training_set_npy/Data_Sample01_data.npy",
-    "Training_set_npy/Data_Sample01_labels.npy",
-    "Training_set_preprocess/Data_Sample01_data_pre.npy",
-    "Training_set_preprocess/Data_Sample01_labels_pre.npy"
-)
-val_data, val_labels = preprocess_file(
-    "Validation_set_npy/Data_Sample01_data.npy",
-    "Validation_set_npy/Data_Sample01_labels.npy",
-    "Validation_set_preprocess/Data_Sample01_data_pre.npy",
-    "Validation_set_preprocess/Data_Sample01_labels_pre.npy"
-)
-train_features = extract_wavelet_features(train_data)
-val_features = extract_wavelet_features(val_data)
-print("Train features shape:", train_features.shape)
-print("Val features shape:", val_features.shape)
+    train_data, train_labels = preprocess_file(
+        "Training_set_npy/Data_Sample01_data.npy",
+        "Training_set_npy/Data_Sample01_labels.npy",
+        "Training_set_preprocess/Data_Sample01_data_pre.npy",
+        "Training_set_preprocess/Data_Sample01_labels_pre.npy"
+    )
+    val_data, val_labels = preprocess_file(
+        "Validation_set_npy/Data_Sample01_data.npy",
+        "Validation_set_npy/Data_Sample01_labels.npy",
+        "Validation_set_preprocess/Data_Sample01_data_pre.npy",
+        "Validation_set_preprocess/Data_Sample01_labels_pre.npy"
+    )
+    train_features = extract_wavelet_features(train_data)
+    val_features = extract_wavelet_features(val_data)
+    print("Train features shape:", train_features.shape)
+    print("Val features shape:", val_features.shape)
 
-train_labels = train_labels - 1
-val_labels = val_labels - 1
+    train_labels = train_labels - 1
+    val_labels = val_labels - 1
 
-train_X = torch.tensor(train_features, dtype=torch.float32)
-val_X = torch.tensor(val_features, dtype=torch.float32)
-train_y = torch.tensor(train_labels, dtype=torch.long)
-val_y = torch.tensor(val_labels, dtype=torch.long)
+    train_X = torch.tensor(train_features, dtype=torch.float32)
+    val_X = torch.tensor(val_features, dtype=torch.float32)
+    train_y = torch.tensor(train_labels, dtype=torch.long)
+    val_y = torch.tensor(val_labels, dtype=torch.long)
 
-train_loader = DataLoader(TensorDataset(train_X, train_y), batch_size=64, shuffle=True)
-val_loader = DataLoader(TensorDataset(val_X, val_y), batch_size=64)
+    train_loader = DataLoader(TensorDataset(train_X, train_y), batch_size=64, shuffle=True)
+    val_loader = DataLoader(TensorDataset(val_X, val_y), batch_size=64)
 
-input_dim = train_X.shape[2]
-model = EEGWaveletLSTM(input_dim=input_dim)
-model.apply(init_weights)
-device = 'cuda' if torch.cuda.is_available() else 'cpu'
-trained_model = train_model(model, train_loader, val_loader, device)
+    input_dim = train_X.shape[2]
+    model = EEGWaveletLSTM(input_dim=input_dim)
+    model.apply(init_weights)
+    device = 'cuda' if torch.cuda.is_available() else 'cpu'
+    trained_model = train_model(model, train_loader, val_loader, device)
 
-test_raw = np.load("Test_set_npy/Data_Sample01_data.npy")
-test_data = np.transpose(test_raw, (2, 1, 0))
-fs = 256
-start_idx, end_idx = int(1.0 * fs), int(3.0 * fs)
-lowcut, highcut = 0.5, 40.0
-b, a = butter(N=4, Wn=[lowcut / (fs / 2), highcut / (fs / 2)], btype='band')
-test_preprocessed = []
-for trial in test_data:
-    segment = trial[:, start_idx:end_idx]
-    filtered = filtfilt(b, a, segment, axis=1)
-    zscored = (filtered - filtered.mean()) / (filtered.std() + 1e-8)
-    test_preprocessed.append(zscored)
-test_data_pre = np.array(test_preprocessed)
-test_features = extract_wavelet_features(test_data_pre)
-test_X = torch.tensor(test_features, dtype=torch.float32).to(device)
-trained_model.eval()
-with torch.no_grad():
-    outputs = trained_model(test_X)
-    predictions = outputs.argmax(dim=1).cpu().numpy()
-    probs = torch.softmax(outputs, dim=1).cpu().numpy()
+    test_raw = np.load("Test_set_npy/Data_Sample01_data.npy")
+    test_data = np.transpose(test_raw, (2, 1, 0))
+    fs = 256
+    start_idx, end_idx = int(1.0 * fs), int(3.0 * fs)
+    lowcut, highcut = 0.5, 40.0
+    b, a = butter(N=4, Wn=[lowcut / (fs / 2), highcut / (fs / 2)], btype='band')
+    test_preprocessed = []
+    for trial in test_data:
+        segment = trial[:, start_idx:end_idx]
+        filtered = filtfilt(b, a, segment, axis=1)
+        zscored = (filtered - filtered.mean()) / (filtered.std() + 1e-8)
+        test_preprocessed.append(zscored)
+    test_data_pre = np.array(test_preprocessed)
+    test_features = extract_wavelet_features(test_data_pre)
+    test_X = torch.tensor(test_features, dtype=torch.float32).to(device)
+    trained_model.eval()
+    with torch.no_grad():
+        outputs = trained_model(test_X)
+        predictions = outputs.argmax(dim=1).cpu().numpy()
+        probs = torch.softmax(outputs, dim=1).cpu().numpy()
 
-manual_true_labels = [
-    4,1,5,3,2,5,5,3,2,4,4,4,2,4,3,5,2,2,4,3,
-    3,4,1,3,4,4,5,1,2,1,3,3,5,2,1,1,2,5,1,1,
-    5,3,4,5,1,5,2,2,3,1
-]
-# true_labels = np.array(manual_true_labels) - 1
-true_labels = np.array(manual_true_labels)
-# true_labels = true_labels + 1
-from sklearn.metrics import confusion_matrix
-predictions = predictions + 1
-test_acc = accuracy_score(true_labels , predictions)
-# print(f"📊 人工标签下的预测准确率：{test_acc:.4f}")
-print(f"(1-5) labels Accuracy:{test_acc:.4f}")
-# print(predictions)
+    manual_true_labels = [
+        4,1,5,3,2,5,5,3,2,4,4,4,2,4,3,5,2,2,4,3,
+        3,4,1,3,4,4,5,1,2,1,3,3,5,2,1,1,2,5,1,1,
+        5,3,4,5,1,5,2,2,3,1
+    ]
+    # true_labels = np.array(manual_true_labels) - 1
+    true_labels = np.array(manual_true_labels)
+    # true_labels = true_labels + 1
+    from sklearn.metrics import confusion_matrix
+    predictions = predictions + 1
+    test_acc = accuracy_score(true_labels , predictions)
+    # print(f"📊 人工标签下的预测准确率：{test_acc:.4f}")
+    print(f"(1-5) labels Accuracy:{test_acc:.4f}")
+    # print(predictions)
 
