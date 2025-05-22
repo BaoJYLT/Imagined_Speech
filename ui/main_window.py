@@ -44,6 +44,45 @@ class MainWindow(QMainWindow):
         # 创建主要部件
         self.create_plot_area()
         self.create_control_panel()
+
+        # 字体等外观设计
+        self.setStyleSheet("""
+            QMainWindow {
+                background-color: white;
+            }
+            QWidget {
+                font-family: 'Segoe UI';
+                font-family: 'Microsoft YaHei';
+                font-size: 20px;
+            }
+            QPushButton {
+                # font-family: 'Consolas';
+                font-family: 'Microsoft YaHei';
+                font-size: 20px;
+                padding: 5px 15px;
+                background-color: #f0f0f0;
+                border: 1px solid #cccccc;
+                border-radius: 3px;
+            }
+            QPushButton:hover {
+                background-color: #e0e0e0;
+            }
+            QLabel {
+                # font-family: 'Segoe UI';
+                font-family: 'Microsoft YaHei';
+                font-size: 20px;
+            }
+            QStatusBar {
+                # font-family: 'Consolas';
+                font-family: 'Microsoft YaHei';
+                font-size: 20px;
+            }
+            QMenuBar {
+                # font-family: 'Segoe UI';
+                font-family: 'Microsoft YaHei';
+                font-size: 20px;
+            }
+        """)
         
     def create_menu_bar(self):
         menubar = self.menuBar()
@@ -159,12 +198,12 @@ class MainWindow(QMainWindow):
                 self.eeg_canvas.plot_eeg(first_trail, user_id=self.user_id)
                 # self.train_model(dialog.file_path)
                 # 训练
-                self.start_training(training_data, self.user_id)
+                self.start_training(training_data)
                 # self.start_training(dialog.training_data)
             except Exception as e:
                 QMessageBox.critical(self, 'Error', f'Failed to load data: {str(e)}')
 
-    def start_training(self, training_data, user_id):
+    def start_training(self, training_data):
         try:
             # 创建进度对话框
             progress = QProgressDialog("Training...", None, 0, 100, self)
@@ -201,20 +240,25 @@ class MainWindow(QMainWindow):
             # 初始化与训练模型
             input_dim = train_X.shape[2]
             model = EEGWaveletLSTM(input_dim=input_dim)
-            # model = train_model(train_X, train_y, val_X, val_y)
             model.apply(init_weights)   # 使用apply初始化模型参数
             device = 'cuda' if torch.cuda.is_available() else 'cpu'
             trained_model = train_model(model, train_loader, val_loader, device)
 
             # 训练完成，保存模型
-            self.save_trained_model(trained_model, user_id)
-            # self.save_trained_model(trained_model, training_data['user_id'])
+            # self.save_trained_model(trained_model, user_id)
+            from .savemodel_dialog import SaveModelDialog
+            save_dialog = SaveModelDialog(self.user_name, self.user_id, self)
+            if save_dialog.exec_() == QDialog.Accepted:
+                model_path = os.path.join(save_dialog.save_path,
+                                          f'{save_dialog.model_name}.pth')
+                os.makedirs(save_dialog.save_path, exist_ok=True)
+                torch.save(trained_model.state_dict(), model_path)
             
             # 更新状态
             self.statusBar().showMessage(
-                # f'Current User: {self.user_name} | ID: {training_data["user_id"]} | Status: Training Complete')
-                f'Current User: {self.user_name} | ID: {user_id} | Status: Training Complete')
-            QMessageBox.information(self, 'Success', 'Model training completed!')
+                f'Current User: {self.user_name} | ID: {self.user_id} | Status: Training Complete')
+            QMessageBox.information(self, 'Success', 
+                                    f'Model training completed!\n Saved to: {model_path}')
 
             # 清理临时文件夹
             import shutil
@@ -240,14 +284,19 @@ class MainWindow(QMainWindow):
                                   f'Model saved to:\n{model_path}')
     '''  
 
+    
+    '''
     # 保存训练好的模型      
     def save_trained_model(self, model, user_id):
         try:
             save_path = f'models/user_{user_id}_model.pth'
             os.makedirs('models', exist_ok=True)
             torch.save(model.state_dict(), save_path)
+            
         except Exception as e:
             QMessageBox.warning(self, '警告', f'模型保存失败: {str(e)}')
+    '''
+    
 
     def show_test_dialog(self):
         if not self.user_name:
