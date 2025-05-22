@@ -81,7 +81,7 @@ def init_weights(m):
                 nn.init.constant_(param.data, 0)
 
 # 模型训练函数 Adam，早停，交叉熵损失，梯度裁剪，返回一个model
-def train_model(model, train_loader, val_loader, device, epochs=100, patience=15):
+def train_model(model, train_loader, val_loader, device, progress_callback=None, epochs=100, patience=15):
     model.to(device)
     optimizer = optim.Adam(model.parameters(), lr=1e-3)
     criterion = nn.CrossEntropyLoss()
@@ -90,6 +90,11 @@ def train_model(model, train_loader, val_loader, device, epochs=100, patience=15
     best_state = None
     patience_counter = 0
     for epoch in range(epochs):
+        # 进度更新
+        if progress_callback:
+            progress  = int((epoch + 1) / epochs * 100)
+            progress_callback(progress, f"Training... Epoch {epoch + 1}/{epochs}")
+        
         # 训练
         model.train()
         for xb, yb in train_loader:
@@ -110,7 +115,10 @@ def train_model(model, train_loader, val_loader, device, epochs=100, patience=15
                 y_pred.extend(preds)
         acc = accuracy_score(y_true, y_pred)
         val_acc_list.append(acc)
-        print(f"Epoch {epoch+1}/{epochs} - Val Accuracy: {acc:.4f}")
+
+        if progress_callback:
+            progress_callback(progress, f"Epoch {epoch+1}/{epochs} - Val Accuracy: {acc:.4f}")
+            # print(f"Epoch {epoch+1}/{epochs} - Val Accuracy: {acc:.4f}")
         if acc > best_acc:
             best_acc = acc
             best_state = model.state_dict()
@@ -118,7 +126,9 @@ def train_model(model, train_loader, val_loader, device, epochs=100, patience=15
         else:
             patience_counter += 1
             if patience_counter >= patience:
-                print("⏹️ Early stopping triggered")
+                if progress_callback :
+                    progress_callback(100, "[-]Early Stopping triggered")
+                # print("[-] Early stopping triggered")
                 break
     if best_state:
         model.load_state_dict(best_state)

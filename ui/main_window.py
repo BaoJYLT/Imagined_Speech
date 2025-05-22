@@ -206,11 +206,33 @@ class MainWindow(QMainWindow):
     def start_training(self, training_data):
         try:
             # 创建进度对话框
-            progress = QProgressDialog("Training...", None, 0, 100, self)
+            progress = QProgressDialog("Training...", "Cancel", 0, 100, self)
+            progress.setWindowTitle("Training Progress")
             progress.setWindowModality(Qt.WindowModal)
+            progress.setAutoClose(False)  # 不自动关闭
+            progress.setAutoReset(False)  # 不自动重置
+            progress.setMinimumDuration(0)
+            progress.setStyleSheet("""
+                QProgressDialog {
+                    font-family: 'Microsoft YaHei UI';
+                    font-size: 20px;
+                    min-width: 500px;
+                }
+                QProgressBar {
+                    text-align: center;
+                    font-size: 16px;
+                    border: 1px solid #cccccc;
+                    border-radius: 3px;
+                    background: #f0f0f0;
+                }
+                QProgressBar::chunk {
+                    background-color: #4CAF50;
+                }
+            """)
             progress.show()
             
             # 预处理数据
+            progress.setLabelText("Processing training data...")
             os.makedirs("temp_process", exist_ok=True)  # 临时存储预处理后的四个文件
             train_processed, train_labels = preprocess_file(
                 training_data['train_data'],
@@ -218,7 +240,7 @@ class MainWindow(QMainWindow):
                 f"temp_process/temp_train_data.npy",
                 f"temp_process/temp_train_labels.npy"  
             )  
-            
+            progress.setLabelText("Processing validation data...")
             val_processed, val_labels = preprocess_file(
                 training_data['val_data'],
                 training_data['val_label'],
@@ -227,6 +249,7 @@ class MainWindow(QMainWindow):
             )
             
             # 提取特征
+            progress.setLabelText("Extracting features...")
             train_features = extract_wavelet_features(train_processed)
             val_features = extract_wavelet_features(val_processed)
             # 数据加载器，特征及labels，转换为PyTorch张量
@@ -242,9 +265,25 @@ class MainWindow(QMainWindow):
             model = EEGWaveletLSTM(input_dim=input_dim)
             model.apply(init_weights)   # 使用apply初始化模型参数
             device = 'cuda' if torch.cuda.is_available() else 'cpu'
-            trained_model = train_model(model, train_loader, val_loader, device)
 
-            # 训练完成，保存模型
+            # 定义进度回调
+            def update_progress(value, message):
+                if progress.wasCanceled():
+                    raise Exception("Training canceled by user")
+                progress.setLabelText(message)
+                progress.setValue(value)
+                QApplication.processEvents()
+
+            trained_model = train_model(model, train_loader, val_loader, device,
+                                        progress_callback=update_progress)
+            progress.setLabelText("Training completed!")
+            progress.setValue(100)
+            progress.setCancelButtonText("OK") # 等待用户确认
+            while not progress.wasCanceled():
+                QApplication.processEvents()
+            progress.close()
+
+            # 训练完成，保存模型，“保存”对话框
             # self.save_trained_model(trained_model, user_id)
             from .savemodel_dialog import SaveModelDialog
             save_dialog = SaveModelDialog(self.user_name, self.user_id, self)
@@ -256,7 +295,7 @@ class MainWindow(QMainWindow):
             
             # 更新状态
             self.statusBar().showMessage(
-                f'Current User: {self.user_name} | ID: {self.user_id} | Status: Training Complete')
+                f'Current User: {self.user_name} | ID: {self.user_id} | Status: Model Saved')
             QMessageBox.information(self, 'Success', 
                                     f'Model training completed!\n Saved to: {model_path}')
 
