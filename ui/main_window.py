@@ -2,6 +2,7 @@ import sys
 import numpy as np
 import os
 import torch
+import re
 from PyQt5.QtWidgets import *
 from PyQt5.QtCore import *
 from PyQt5.QtGui import *
@@ -342,12 +343,57 @@ class MainWindow(QMainWindow):
             QMessageBox.warning(self, 'Error', 'Please register first')
             return
             
-        file_path, _ = QFileDialog.getOpenFileName(
-            self,
-            "Select Test Data",
-            "",
-            "NPY Files (*.npy)"
-        )
+        if not self.user_id:
+            QMessageBox.warning(self, 'Error', 'Please select a user ID first')
+            return
         
-        if file_path:
-            self.test_model(file_path)
+        try:
+            # 1. 选择模型文件
+            model_path, _ = QFileDialog.getOpenFileName(
+                self,
+                "Select Model File",
+                "./models",  # 默认打开模型保存目录
+                "PyTorch Models (*.pth)"
+            )
+            
+            if not model_path:
+                return
+                
+            # 2. 选择测试数据文件
+            test_data_path, _ = QFileDialog.getOpenFileName(
+                self,
+                "Select Test Data File",
+                "./Test_set_npy",  # 默认打开测试集目录
+                "NPY Files (*.npy)"
+            )
+            
+            if not test_data_path:
+                return
+            
+            # 3. 验证测试文件的用户ID
+            basename = os.path.basename(test_data_path)
+            match = re.match(r'Data_Sample(\d{2})_data\.npy', basename)
+            
+            if not match:
+                QMessageBox.warning(self, 'Error', 'Invalid test file format')
+                return
+                
+            file_user_id = match.group(1)
+            if file_user_id != self.user_id:
+                QMessageBox.warning(
+                    self, 
+                    'Error', 
+                    f'Test file user ID ({file_user_id}) does not match current user ID ({self.user_id})'
+                )
+                return
+                
+            # 4. 更新状态栏
+            self.statusBar().showMessage(
+                f'Current User: {self.user_name} | ID: {self.user_id} | Status: Testing...'
+            )
+            
+            # 5. 开始测试
+            self.run_test(model_path, test_data_path)
+            
+        except Exception as e:
+            QMessageBox.critical(self, 'Error', f'Test failed: {str(e)}')
