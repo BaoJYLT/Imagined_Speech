@@ -1,6 +1,5 @@
 import os
 import torch
-import numpy as np
 from PyQt5.QtWidgets import *
 from PyQt5.QtCore import *
 from matplotlib.figure import Figure
@@ -20,13 +19,23 @@ class PerformanceDialog(QDialog):
         self.parent.statusBar().showMessage(
                 f'Current User: {self.parent.user_name} | ID: {self.parent.user_id} | Status: Model performance Evaluation'
             )
-        # 选择模型文件button
+        
+         # 创建模型选择区域
+        model_group = QGroupBox("Model Selection")
+        model_layout = QVBoxLayout()
+        
         select_btn = QPushButton('Select Model File')
         select_btn.clicked.connect(self.select_model_file)
-        layout.addWidget(select_btn)
+        self.model_label = QLabel('No model selected')
+        self.model_label.setStyleSheet("font-family: 'Microsoft YaHei'; font-size: 20px; color: #666;")
+        
+        model_layout.addWidget(select_btn)
+        model_layout.addWidget(self.model_label)
+        model_group.setLayout(model_layout)
         
         # 创建选项卡组件
         self.tab_widget = QTabWidget()
+        layout.addWidget(model_group)
         layout.addWidget(self.tab_widget)
         
         self.setLayout(layout)
@@ -41,6 +50,8 @@ class PerformanceDialog(QDialog):
         )
         
         if model_path:
+            model_name = os.path.basename(model_path)
+            self.model_label.setText(f"Selected model: {model_name}")
             self.load_and_show_performance(model_path)
 
     def load_and_show_performance(self, model_path):

@@ -13,6 +13,7 @@ class TestDialog(QDialog):
         self.user_name = parent.user_name
         self.user_id = parent.user_id
         self.initUI()
+
     # 界面初始化-button响应、模型与文件打开-尝试运行
     def initUI(self):
         self.setWindowTitle('Test Model')
@@ -20,17 +21,41 @@ class TestDialog(QDialog):
         self.resize(600, 200)     # 设置默认大小
         layout = QVBoxLayout()
         
-        model_btn = QPushButton('Select Model File')
-        model_btn.clicked.connect(self.select_model_file)
-        layout.addWidget(model_btn)
+        model_group = QGroupBox("Model Selection")
+        model_layout = QVBoxLayout()
+        self.model_btn = QPushButton('Select Model File')
+        self.model_btn.clicked.connect(self.select_model_file)
+        self.model_label = QLabel('No model selected')
+        self.model_label.setStyleSheet("font-family: 'Microsoft YaHei'; font-size: 20px; color: #666;")
+        model_layout.addWidget(self.model_btn)
+        model_layout.addWidget(self.model_label)
+        model_group.setLayout(model_layout)
         
-        test_btn = QPushButton('Select Test Data')
-        test_btn.clicked.connect(self.select_test_file)
-        layout.addWidget(test_btn)
+        test_group = QGroupBox("Test Data Selection")
+        test_layout = QVBoxLayout()
+        self.test_btn = QPushButton('Select Test Data')
+        self.test_btn.clicked.connect(self.select_test_file)
+        self.test_label = QLabel('No test file selected')
+        self.test_label.setStyleSheet("font-family: 'Microsoft YaHei'; font-size: 20px; color: #666;")     
+        test_layout.addWidget(self.test_btn)
+        test_layout.addWidget(self.test_label)
+        test_group.setLayout(test_layout)
+        
+        # 添加到主布局
+        layout.addWidget(model_group)
+        layout.addWidget(test_group)
+        
         self.parent.statusBar().showMessage(
-                f'Current User: {self.parent.user_name} | ID: {self.user_id} | Status: Test Mode'
-            )
+            f'Current User: {self.parent.user_name} | ID: {self.user_id} | Status: Test Mode'
+        )
         self.setLayout(layout)
+        # test_btn = QPushButton('Select Test Data')
+        # test_btn.clicked.connect(self.select_test_file)
+        # layout.addWidget(test_btn)
+        # self.parent.statusBar().showMessage(
+        #         f'Current User: {self.parent.user_name} | ID: {self.user_id} | Status: Test Mode'
+        #     )
+        # self.setLayout(layout)
 
     def select_model_file(self):
         self.model_path, _ = QFileDialog.getOpenFileName(
@@ -41,6 +66,8 @@ class TestDialog(QDialog):
         )
         
         if self.model_path:
+            model_name = os.path.basename(self.model_path)
+            self.model_label.setText(f"Selected model: {model_name}")
             self.check_and_run_test()
 
     def select_test_file(self):
@@ -52,6 +79,8 @@ class TestDialog(QDialog):
         )
         
         if self.test_data_path:
+            test_name = os.path.basename(self.test_data_path)
+            self.test_label.setText(f"Selected file: {test_name}")
             self.check_and_run_test()
 
     def check_and_run_test(self):

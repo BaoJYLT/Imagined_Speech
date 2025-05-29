@@ -242,7 +242,7 @@ class TrainDialog(QDialog):
             progress.setValue(total_progress)
             QApplication.processEvents()
 
-        for seed in range(210, 212):
+        for seed in range(TOTAL_SEEDS):
             set_seed(seed)
             progress.setLabelText(f"Training with seed {seed}...")
             

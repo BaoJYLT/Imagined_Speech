@@ -3,42 +3,14 @@ import numpy as np
 import pywt
 import matplotlib.pyplot as plt
 from scipy.signal import butter, filtfilt
-import os
-import numpy as np
-import pywt
-import matplotlib.pyplot as plt
-from scipy.signal import butter, filtfilt
-import os
-import numpy as np
-import pywt
 import torch
 import torch.nn as nn
 import torch.optim as optim
 import matplotlib.pyplot as plt
-import seaborn as sns
-from torch.utils.data import DataLoader, TensorDataset
-from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score, confusion_matrix
-import pandas as pd
 import random
-import os
-import numpy as np
-import pywt
-import matplotlib.pyplot as plt
-from scipy.signal import butter, filtfilt
-import os
-import numpy as np
-import pywt
-import torch
-import torch.nn as nn
-import torch.optim as optim
-import matplotlib.pyplot as plt
-import seaborn as sns
-from torch.utils.data import DataLoader, TensorDataset
-from sklearn.model_selection import train_test_split
 from sklearn.metrics import accuracy_score, confusion_matrix
 from sklearn.metrics import *
-import pandas as pd
 
 # %%预处理
 

@@ -1,7 +1,5 @@
 from PyQt5.QtWidgets import (QDialog, QLabel, QLineEdit, QPushButton, 
                             QVBoxLayout, QMessageBox, QMainWindow)
-from PyQt5.QtCore import Qt
-import os
 import re
 
 '''
