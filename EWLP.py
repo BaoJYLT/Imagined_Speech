@@ -242,7 +242,7 @@ def init_weights(m):
 # %% train_model 模型训练
 # 训练流程 返回一个model 和best_acc
 # 一个train_model一个二分类
-def train_model(model, train_loader, val_loader, device, epochs=1000, patience=50, model_save_path="best_model.pth"):
+def train_model_save(model, train_loader, val_loader, device, epochs=1000, patience=50, model_save_path="best_model.pth", progress_callback = None):
     model.to(device)
     optimizer = optim.Adam(model.parameters(), lr=5e-5)
     criterion = nn.CrossEntropyLoss()
@@ -254,6 +254,7 @@ def train_model(model, train_loader, val_loader, device, epochs=1000, patience=5
     patience_counter = 0
 
     for epoch in range(epochs):
+        progress = int((epoch + 1) * 100 / epochs)
         model.train()
         total_train_loss = 0
         for xb, yb in train_loader:
@@ -281,10 +282,88 @@ def train_model(model, train_loader, val_loader, device, epochs=1000, patience=5
         val_acc_list.append(acc)
         print(f"Epoch {epoch+1}/{epochs} - Val Accuracy: {acc:.4f} - Train Loss: {avg_train_loss:.4f}")
 
+        # 更新进度条信息
+        if progress_callback:
+            message = (f"Epoch {epoch+1}/{epochs}\n"
+                      f"Validation Accuracy: {acc:.4f}\n"
+                      f"Training Loss: {avg_train_loss:.4f}")
+            progress_callback(progress, message)
+
+
         if acc > best_acc:
             best_acc = acc
             best_state = model.state_dict()
-            torch.save(best_state, model_save_path)  # ✅ 保存模型参数
+            torch.save(best_state, model_save_path)  # 保存最佳模型的参数
+            patience_counter = 0
+        else:
+            patience_counter += 1
+            if patience_counter >= patience:
+                if progress_callback:
+                    progress_callback(100, "Early stopping triggered!")
+                break
+
+    if best_state:
+        model.load_state_dict(best_state)
+
+    return model, best_acc
+
+def train_model(model, train_loader, val_loader, device, epochs=1000, patience=5, progress_callback = None):
+    model.to(device)
+    optimizer = optim.Adam(model.parameters(), lr=5e-5)
+    criterion = nn.CrossEntropyLoss()
+    
+    # 用来保存每个epoch的损失和验证准确率
+    train_loss_list = []
+    val_acc_list = []
+
+    best_acc = 0
+    best_state = None
+    patience_counter = 0
+
+    for epoch in range(epochs):
+        progress = int((epoch+1)* 100 / epochs)
+        model.train()
+        total_train_loss = 0  # 用于记录一个epoch的训练损失
+        
+        for xb, yb in train_loader:
+            xb, yb = xb.to(device), yb.to(device)
+            optimizer.zero_grad()
+            loss = criterion(model(xb), yb)
+            loss.backward()
+            torch.nn.utils.clip_grad_norm_(model.parameters(), max_norm=5)  # 梯度裁剪
+            optimizer.step()
+
+            total_train_loss += loss.item() * xb.size(0)  # 累加每个batch的损失
+
+        avg_train_loss = total_train_loss / len(train_loader.dataset)  # 计算平均训练损失
+        train_loss_list.append(avg_train_loss)  # 保存该epoch的训练损失
+
+        # 评估阶段
+        model.eval()
+        y_true, y_pred = [], []
+        with torch.no_grad():
+            for xb, yb in val_loader:
+                xb = xb.to(device)
+                preds = model(xb).argmax(1).cpu().numpy()
+                y_true.extend(yb.numpy())
+                y_pred.extend(preds)
+
+        acc = accuracy_score(y_true, y_pred)
+        val_acc_list.append(acc)
+        print(f"Epoch {epoch+1}/{epochs} - Val Accuracy: {acc:.4f} - Train Loss: {avg_train_loss:.4f}")
+
+        # 更新进度信息
+        if progress_callback:
+            message = (f"Epoch {epoch+1}/{epochs}\n"
+                      f"Validation Accuracy: {acc:.4f}\n"
+                      f"Training Loss: {avg_train_loss:.4f}")
+            progress_callback(progress, message)
+
+        if acc > best_acc:
+            best_acc = acc
+            best_state = model.state_dict()
+            # torch.save(best_state, "best_model_3fenlei_01.pth")  # ✅ 保存模型参数
+            print(f"Best model saved with accuracy: {best_acc:.4f}")
             patience_counter = 0
         else:
             patience_counter += 1
@@ -294,6 +373,11 @@ def train_model(model, train_loader, val_loader, device, epochs=1000, patience=5
 
     if best_state:
         model.load_state_dict(best_state)
+
+    # 训练完成时的最终进度更新
+    if progress_callback:
+        progress_callback(100, "Training completed!\nClick OK to continue...")
+
 
     return model, best_acc
 

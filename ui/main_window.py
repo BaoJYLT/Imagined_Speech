@@ -3,15 +3,22 @@ import numpy as np
 import os
 import torch
 import re
+import torch
+import torch.nn as nn
+import torch.optim as optim
+
 from PyQt5.QtWidgets import *
 from PyQt5.QtCore import *
 from PyQt5.QtGui import *
 from torch.utils.data import DataLoader, TensorDataset
 
 from utils.plot_utils import EEGCanvas
-# from eeg_wavelet_lstm_pipeline import *
-from eeg_wavelet_lstm_pipeline import preprocess_file, extract_wavelet_features, train_model, init_weights
-from eeg_wavelet_lstm_pipeline import EEGWaveletLSTM
+# # from eeg_wavelet_lstm_pipeline import *
+# from eeg_wavelet_lstm_pipeline import preprocess_file, extract_wavelet_features, train_model, init_weights
+# from eeg_wavelet_lstm_pipeline import EEGWaveletLSTM
+
+from EWLP import preprocess_file, extract_wavelet_features, train_model, init_weights, set_seed
+from EWLP import EEGWaveletLSTM
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -125,16 +132,30 @@ class MainWindow(QMainWindow):
     def update_eeg_display(self, user_id):
         """更新EEG显示区域"""
         try:
-            # 加载用户的训练数据
-            data_path = f'Training_set_npy/Data_Sample{user_id}_data.npy'
-            eeg_data = np.load(data_path)
+            val_data_path = f'EEG_DATASET/Validation_Sample{user_id}_preprocess/Data_Sample{user_id}_data_pre_0_1.npy'
+            if not os.path.exists(val_data_path):
+                raise FileNotFoundError(f"Validation data not found: {val_data_path}")
+                
+            val_data = np.load(val_data_path)
+            first_trial = val_data[0]  # 获取第一个trial的数据  load进来的数据格式应为(trails, channels, samples)
             
-            # 显示第一个trial的数据!
-            first_trial = eeg_data[0]  # shape: (channels, samples)
             self.eeg_canvas.plot_eeg(first_trial, user_id=user_id)
             
         except Exception as e:
-            QMessageBox.warning(self, 'Error', f'加载EEG数据失败: {str(e)}')
+            QMessageBox.critical(self, 'Error', f'Failed to update EEG display: {str(e)}')
+        
+        # try:
+        #     # 加载用户的训练数据
+        #     # data_path = f'Training_set_npy/Data_Sample{user_id}_data.npy'
+        #     data_path = f'EEG_DATASET/Validation_Sample{user_id}_preprocess/Data_Sample{user_id}_data_pre_0_1.npy'
+        #     eeg_data = np.load(data_path)
+            
+        #     # 显示第一个trial的数据!
+        #     first_trial = eeg_data[0]  # shape: (channels, samples)
+        #     self.eeg_canvas.plot_eeg(first_trial, user_id=user_id)
+            
+        # except Exception as e:
+        #     QMessageBox.warning(self, 'Error', f'Errors occurr while loading EEG data: {str(e)}')
 
     def create_control_panel(self):
         # 创建控制按钮面板
@@ -189,22 +210,30 @@ class MainWindow(QMainWindow):
                 # first trail EEG显示
                 self.user_id = dialog.user_id
                 training_data = dialog.files
-                train_data = np.load(training_data['train_data'])
-                # train_data = np.load(dialog.training_data['train_data'])
-                first_trail = train_data[0]
+
+                # train_data = np.load(training_data['train_data'])
+                # # train_data = np.load(dialog.training_data['train_data'])
+                # first_trail = train_data[0]
+
                 # 状态栏更新
                 self.statusBar().showMessage(
                     f'Current User: {self.user_name} | ID: {dialog.user_id} | Status: Training...'
                 )
-                self.eeg_canvas.plot_eeg(first_trail, user_id=self.user_id)
+                # self.eeg_canvas.plot_eeg(first_trail, user_id=self.user_id)
                 # self.train_model(dialog.file_path)
+
+                self.update_eeg_display(self.user_id) # 显示validation set 图像
+
                 # 训练
-                self.start_training(training_data)
-                # self.start_training(dialog.training_data)
+                self.start_training(
+                    training_data,
+                    model_name = dialog.model_name,
+                    save_path = dialog.save_path
+                )
             except Exception as e:
                 QMessageBox.critical(self, 'Error', f'Failed to load data: {str(e)}')
 
-    def start_training(self, training_data):
+    def start_training(self, training_data, model_name, save_path):
         try:
             # 创建进度对话框
             progress = QProgressDialog("Training...", "Cancel", 0, 100, self)
@@ -232,51 +261,85 @@ class MainWindow(QMainWindow):
             """)
             progress.show()
             
-            # 预处理数据
-            progress.setLabelText("Processing training data...")
-            os.makedirs("temp_process", exist_ok=True)  # 临时存储预处理后的四个文件
-            train_processed, train_labels = preprocess_file(
-                training_data['train_data'],
-                training_data['train_label'],
-                f"temp_process/temp_train_data.npy",
-                f"temp_process/temp_train_labels.npy"  
-            )  
-            progress.setLabelText("Processing validation data...")
-            val_processed, val_labels = preprocess_file(
-                training_data['val_data'],
-                training_data['val_label'],
-                f"temp_process/temp_val_data.npy",
-                f"temp_process/temp_val_labels.npy"
-            )
-            
-            # 提取特征
-            progress.setLabelText("Extracting features...")
-            train_features = extract_wavelet_features(train_processed)
-            val_features = extract_wavelet_features(val_processed)
-            # 数据加载器，特征及labels，转换为PyTorch张量
-            train_X = torch.tensor(train_features, dtype=torch.float32)
-            train_y = torch.tensor(train_labels - 1, dtype=torch.long)
-            val_X = torch.tensor(val_features, dtype=torch.float32)
-            val_y = torch.tensor(val_labels - 1, dtype=torch.long)
-
-            train_loader = DataLoader(TensorDataset(train_X, train_y), batch_size=64, shuffle = True)
-            val_loader = DataLoader(TensorDataset(val_X, val_y), batch_size=64)
-            # 初始化与训练模型
-            input_dim = train_X.shape[2]
-            model = EEGWaveletLSTM(input_dim=input_dim)
-            model.apply(init_weights)   # 使用apply初始化模型参数
             device = 'cuda' if torch.cuda.is_available() else 'cpu'
+            
+            # 数据导入
+            train_data = np.load(training_data['train_data'])
+            train_labels = np.load(training_data['train_label'])
+            val_data = np.load(training_data['val_data'])
+            val_labels = np.load(training_data['val_label'])
+            # 特征提取
+            progress.setLabelText("Extracting wavelet features...")
+            train_features = extract_wavelet_features(train_data)
+            val_features = extract_wavelet_features(val_data)
 
-            # 定义进度回调
-            def update_progress(value, message):
+            # 训练模型
+            TOTAL_SEEDS = 351
+            # accuracy_train_list = []
+            best_seed = None
+            best_acc = 0
+            best_model = None
+
+            # 定义进度更新回调
+            def update_training_progress(epoch_progress, message, current_seed):
+                # 计算总体进度百分比 (0-100)
+                total_progress = int((current_seed * 100 + epoch_progress) / TOTAL_SEEDS)
+                progress_message = (
+                    f"Seed {current_seed}/{TOTAL_SEEDS-1}\n"
+                    f"{message}"
+                )
+                
                 if progress.wasCanceled():
                     raise Exception("Training canceled by user")
-                progress.setLabelText(message)
-                progress.setValue(value)
+                progress.setLabelText(progress_message)
+                progress.setValue(total_progress)
                 QApplication.processEvents()
 
-            trained_model = train_model(model, train_loader, val_loader, device,
-                                        progress_callback=update_progress)
+            for seed in range(TOTAL_SEEDS):
+                set_seed(seed)
+                progress.setLabelText(f"Training with seed {seed}...")
+                model = EEGWaveletLSTM(input_dim=train_features.shape[2])
+                model.apply(init_weights)
+                train_loader = DataLoader(
+                    TensorDataset(
+                        torch.tensor(train_features, dtype=torch.float32),
+                        torch.tensor(train_labels, dtype=torch.long)
+                        ),
+                    batch_size=64,
+                    shuffle=True
+                )
+                val_loader = DataLoader(
+                    TensorDataset(
+                        torch.tensor(val_features, dtype=torch.float32), 
+                        torch.tensor(val_labels, dtype=torch.long)),
+                    batch_size=64
+                )
+                trained_model, final_acc = train_model(
+                    model=model,
+                    train_loader=train_loader,
+                    val_loader=val_loader,
+                    device=device,
+                    epochs=1000,
+                    patience=50,
+                    progress_callback=lambda p, m: update_training_progress(p, m, seed)
+                )   # lambda表达式，含有两个变量的匿名函数progress message
+                # accuracy_train_list.append((seed, final_acc))
+                if final_acc > best_acc:
+                    best_acc = final_acc
+                    best_seed = seed
+                    best_model = trained_model
+
+            if best_model is not None:
+                best_model_save_path = save_path
+                torch.save(best_model.state_dict(),best_model_save_path)
+
+            # 保存model
+            model_path = os.ath.join(save_path, f'{model_name}.pth')
+            os.makedirs(save_path, exist_ok=True)
+            torch.save(best_model.state_dict(), model_path)
+            print(f"best model saved:{best_model_save_path}")
+
+
             progress.setLabelText("Training completed!")
             progress.setValue(100)
             progress.setCancelButtonText("OK") # 等待用户确认
@@ -284,21 +347,18 @@ class MainWindow(QMainWindow):
                 QApplication.processEvents()
             progress.close()
 
-            # 训练完成，保存模型，“保存”对话框
-            # self.save_trained_model(trained_model, user_id)
-            from .savemodel_dialog import SaveModelDialog
-            save_dialog = SaveModelDialog(self.user_name, self.user_id, self)
-            if save_dialog.exec_() == QDialog.Accepted:
-                model_path = os.path.join(save_dialog.save_path,
-                                          f'{save_dialog.model_name}.pth')
-                os.makedirs(save_dialog.save_path, exist_ok=True)
-                torch.save(trained_model.state_dict(), model_path)
-            
+            # 保存成功
+            QMessageBox.information(self, 'Success', 
+                            f'Model training completed!\n\n'
+                            f'Model Name: {model_name}\n'
+                            f'Best Seed: {best_seed}\n'
+                            f'Best Accuracy: {best_acc:.4f}\n'
+                            f'Saved to: {model_path}')
             # 更新状态
             self.statusBar().showMessage(
                 f'Current User: {self.user_name} | ID: {self.user_id} | Status: Model Saved')
-            QMessageBox.information(self, 'Success', 
-                                    f'Model training completed!\n Saved to: {model_path}')
+            # QMessageBox.information(self, 'Success', 
+            #                         f'Model training completed!\n Saved to: {model_path}')
 
             # 清理临时文件夹
             import shutil
