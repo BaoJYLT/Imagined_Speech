@@ -1,25 +1,10 @@
-import sys
 import numpy as np
 import os
-import torch
-import re
-import torch
-import torch.nn as nn
-import torch.optim as optim
-
-import matplotlib.pyplot as plt
 from PyQt5.QtWidgets import *
 from PyQt5.QtCore import *
 from PyQt5.QtGui import *
-from torch.utils.data import DataLoader, TensorDataset
 from sklearn.metrics import *
 from utils.plot_utils import EEGCanvas
-# # from eeg_wavelet_lstm_pipeline import *
-# from eeg_wavelet_lstm_pipeline import preprocess_file, extract_wavelet_features, train_model, init_weights
-# from eeg_wavelet_lstm_pipeline import EEGWaveletLSTM
-
-from EWLP import preprocess_file, extract_wavelet_features, train_model, init_weights, set_seed
-from EWLP import EEGWaveletLSTM
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -145,18 +130,6 @@ class MainWindow(QMainWindow):
         except Exception as e:
             QMessageBox.critical(self, 'Error', f'Failed to update EEG display: {str(e)}')
         
-        # try:
-        #     # 加载用户的训练数据
-        #     # data_path = f'Training_set_npy/Data_Sample{user_id}_data.npy'
-        #     data_path = f'EEG_DATASET/Validation_Sample{user_id}_preprocess/Data_Sample{user_id}_data_pre_0_1.npy'
-        #     eeg_data = np.load(data_path)
-            
-        #     # 显示第一个trial的数据!
-        #     first_trial = eeg_data[0]  # shape: (channels, samples)
-        #     self.eeg_canvas.plot_eeg(first_trial, user_id=user_id)
-            
-        # except Exception as e:
-        #     QMessageBox.warning(self, 'Error', f'Errors occurr while loading EEG data: {str(e)}')
 
     def create_control_panel(self):
         # 创建控制按钮面板
@@ -191,10 +164,6 @@ class MainWindow(QMainWindow):
         if dialog.exec_() == QDialog.Accepted:
             self.user_name = dialog.get_user_name()
             self.statusBar().showMessage(f'Current User: {self.user_name}')
-            # 根据功能修改
-            # self.current_user = dialog.get_current_user()   # 当前user
-            # self.statusBar().showMessage(f'Current User:  {self.current_user}       |       Mode: Logged In')
-            # 可以在这里启用其他按钮
             self.enable_user_functions()
 
     def enable_user_functions(self):
@@ -213,315 +182,37 @@ class MainWindow(QMainWindow):
             try:
                 # first trail EEG显示
                 self.user_id = dialog.user_id
-                training_data = dialog.files
 
-                # train_data = np.load(training_data['train_data'])
-                # # train_data = np.load(dialog.training_data['train_data'])
-                # first_trail = train_data[0]
-
-                # 状态栏更新
                 self.statusBar().showMessage(
                     f'Current User: {self.user_name} | ID: {dialog.user_id} | Status: Training...'
                 )
-                # self.eeg_canvas.plot_eeg(first_trail, user_id=self.user_id)
-                # self.train_model(dialog.file_path)
-
-                self.update_eeg_display(self.user_id) # 显示validation set 图像
-
-                # 训练
-                self.start_training(
-                    training_data,
-                    model_name = dialog.model_name,
-                    save_path = dialog.save_path
-                )
+                # 显示验证集对应图像
+                val_data_path = f'EEG_DATASET/Validation_Sample{self.user_id}_preprocess/Data_Sample{self.user_id}_data_pre_0_1.npy'
+                if os.path.exists(val_data_path):
+                    self.update_eeg_display(self.user_id)
+                else:
+                    QMessageBox.warning(self, 'Warning', f'Validation data not found: {val_data_path}')
+                
             except Exception as e:
                 QMessageBox.critical(self, 'Error', f'Failed to load data: {str(e)}')
 
-    def start_training(self, training_data, model_name, save_path):
-        try:
-            # 创建进度对话框
-            progress = QProgressDialog("Training...", "Cancel", 0, 100, self)
-            progress.setWindowTitle("Training Progress")
-            progress.setWindowModality(Qt.WindowModal)
-            progress.setAutoClose(False)  # 不自动关闭
-            progress.setAutoReset(False)  # 不自动重置
-            progress.setMinimumDuration(0)
-            progress.setStyleSheet("""
-                QProgressDialog {
-                    font-family: 'Microsoft YaHei UI';
-                    font-size: 20px;
-                    min-width: 500px;
-                }
-                QProgressBar {
-                    text-align: center;
-                    font-size: 16px;
-                    border: 1px solid #cccccc;
-                    border-radius: 3px;
-                    background: #f0f0f0;
-                }
-                QProgressBar::chunk {
-                    background-color: #4CAF50;
-                }
-            """)
-            progress.show()
-            
-            device = 'cuda' if torch.cuda.is_available() else 'cpu'
-            
-            # 数据导入
-            train_data = np.load(training_data['train_data'])
-            train_labels = np.load(training_data['train_label'])
-            val_data = np.load(training_data['val_data'])
-            val_labels = np.load(training_data['val_label'])
-            # 特征提取
-            progress.setLabelText("Extracting wavelet features...")
-            train_features = extract_wavelet_features(train_data)
-            val_features = extract_wavelet_features(val_data)
-
-            # 训练模型
-            TOTAL_SEEDS = 351
-            # accuracy_train_list = []
-            best_seed = None
-            best_acc = 0
-            best_model = None
-
-            # 定义进度更新回调
-            def update_training_progress(epoch_progress, message, current_seed):
-                # 计算总体进度百分比 (0-100)
-                total_progress = int((current_seed * 100 + epoch_progress) / TOTAL_SEEDS)
-                progress_message = (
-                    f"Seed {current_seed}/{TOTAL_SEEDS-1}\n"
-                    f"{message}"
-                )
-                
-                if progress.wasCanceled():
-                    raise Exception("Training canceled by user")
-                progress.setLabelText(progress_message)
-                progress.setValue(total_progress)
-                QApplication.processEvents()
-
-            for seed in range(210, 212):
-                set_seed(seed)
-                progress.setLabelText(f"Training with seed {seed}...")
-                model = EEGWaveletLSTM(input_dim=train_features.shape[2])
-                model.apply(init_weights)
-                train_loader = DataLoader(
-                    TensorDataset(
-                        torch.tensor(train_features, dtype=torch.float32),
-                        torch.tensor(train_labels, dtype=torch.long)
-                        ),
-                    batch_size=64,
-                    shuffle=True
-                )
-                val_loader = DataLoader(
-                    TensorDataset(
-                        torch.tensor(val_features, dtype=torch.float32), 
-                        torch.tensor(val_labels, dtype=torch.long)),
-                    batch_size=64
-                )
-                trained_model, final_acc, best_performance = train_model(
-                    model=model,
-                    train_loader=train_loader,
-                    val_loader=val_loader,
-                    device=device,
-                    epochs=1000,
-                    patience=50,
-                    progress_callback=lambda p, m: update_training_progress(p, m, seed)
-                )   # lambda表达式，含有两个变量的匿名函数progress message
-                # accuracy_train_list.append((seed, final_acc))
-                if final_acc > best_acc:
-                    best_acc = final_acc
-                    best_seed = seed
-                    best_model = trained_model
-
-            if best_model is not None:
-                model_info = {
-                    'model_state': best_model.state_dict(),
-                    'performance': best_performance,
-                    'best_seed': best_seed,
-                    'best_acc': best_acc
-                }
-                torch.save(model_info, os.path.join(save_path, f'model_name'))
-                # best_model_save_path = save_path
-                # torch.save(best_model.state_dict(),best_model_save_path)
-                # 保存best model的performance（验证准确率曲线val_acc_list，训练损失曲线train_loss_list，混淆矩阵Confusion Matrix
-                # 可能还需要在train_model里面增加对上述变量的返回，返回类型应该是一个seed下的列表，不断迭代，最终只保留最好的best model情况下的这些列表
-                # 后续用于performance时对模型性能的显示）
-
-            # 保存model
-            model_path = os.path.join(save_path, f'{model_name}.pth')
-            os.makedirs(save_path, exist_ok=True)
-            torch.save(best_model.state_dict(), model_path)
-            # print(f"best model saved:{best_model_save_path}")
-
-
-            progress.setLabelText("Training completed!")
-            progress.setValue(100)
-            progress.setCancelButtonText("OK") # 等待用户确认
-            while not progress.wasCanceled():
-                QApplication.processEvents()
-            progress.close()
-
-            # 保存成功
-            QMessageBox.information(self, 'Success', 
-                            f'Model training completed!\n\n'
-                            f'Model Name: {model_name}\n'
-                            f'Best Seed: {best_seed}\n'
-                            f'Best Accuracy: {best_acc:.4f}\n'
-                            f'Saved to: {model_path}')
-            # 更新状态
-            self.statusBar().showMessage(
-                f'Current User: {self.user_name} | ID: {self.user_id} | Status: Model Saved')
-            
-            # 清理临时文件夹
-            import shutil
-            shutil.rmtree("temp_process", ignore_errors=True)
-
-        except Exception as e:
-            QMessageBox.critical(self, 'Error', f'Training failed: {str(e)}')
-            raise
     
-    '''
-    # Train模型调用
-    def train_model(self, file_path):
-        # 模型训练代码
-
-        from .savemodel_dialog import SaveModelDialog
-        save_dialog = SaveModelDialog(self.user_name, self.user_id, self)
-        if save_dialog.exec_() == QDialog.Accepted:
-            # 保存模型
-            model_path = os.path.join(save_dialog.save_path, 
-                                    f'{save_dialog.model_name}.pth')
-            # ...save model code...
-            QMessageBox.information(self, 'Success', 
-                                  f'Model saved to:\n{model_path}')
-    '''  
-
-    
-    '''
-    # 保存训练好的模型      
-    def save_trained_model(self, model, user_id):
-        try:
-            save_path = f'models/user_{user_id}_model.pth'
-            os.makedirs('models', exist_ok=True)
-            torch.save(model.state_dict(), save_path)
-            
-        except Exception as e:
-            QMessageBox.warning(self, '警告', f'模型保存失败: {str(e)}')
-    '''
-    
-
     def show_test_dialog(self):
+        from .test_dialog import TestDialog
         if not self.user_name:
             QMessageBox.warning(self, 'Error', 'Please register first')
             return
-            
         if not self.user_id:
             QMessageBox.warning(self, 'Error', 'Please select a user ID first')
             return
+        dialog = TestDialog(self)
+        dialog.exec_()
         
-        try:
-            model_path, _ = QFileDialog.getOpenFileName(# 选择模型文件
-                self,
-                "Select Model File",
-                "./models",  # 默认打开模型保存目录
-                "PyTorch Models (*.pth)"
-            )
-            if not model_path:
-                return
-                
-            test_data_path, _ = QFileDialog.getOpenFileName(# 选择测试数据文件
-                self,
-                "Select Test Data File",
-                "EEG_DATASET/Test_Sample01_preprocess",  # 默认打开测试集目录
-                "NPY Files (*.npy)"
-            )
-            if not test_data_path:
-                return
-            
-            basename = os.path.basename(test_data_path)# 验证测试文件的用户ID
-            match = re.match(r'Data_Sample(\d{2})_data_pre\.npy', basename)
-            if not match:
-                QMessageBox.warning(self, 'Error', 'Invalid test file format')
-                return
     
-            file_user_id = match.group(1)
-            if file_user_id != self.user_id:
-                QMessageBox.warning(
-                    self, 
-                    'Error', 
-                    f'Test file user ID ({file_user_id}) does not match current user ID ({self.user_id})'
-                )
-                return
-                
-            
-            self.statusBar().showMessage(# 更新状态栏
-                f'Current User: {self.user_name} | ID: {self.user_id} | Status: Testing...'
-            )
-            
-            self.run_test(model_path, test_data_path)
-            
-        except Exception as e:
-            QMessageBox.critical(self, 'Error', f'Test failed: {str(e)}')
-
-
-    def run_test(self, model_path, test_data_path):
-        try:
-            device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
-            test_data = np.load(test_data_path)
-            test_features = extract_wavelet_features(test_data)
-            test_X = torch.tensor(test_features, dtype=torch.float32).to(device)
-            
-            # 加载本地训练后模型
-            model = EEGWaveletLSTM(input_dim=test_features.shape[2])
-            model.load_state_dict(torch.load(model_path, map_location=device))
-            model.to(device)
-            model.eval()
-            
-            # 预测
-            with torch.no_grad():
-                outputs = model(test_X)
-                predictions = outputs.argmax(dim=1).cpu().numpy()
-                probs = torch.softmax(outputs, dim=1).cpu().numpy()
-            # 结果映射
-            label_to_word = {0: "Hello", 1: "Stop"}
-            predicted_words = [label_to_word[pred] for pred in predictions]
-            
-            print("Predictions:", predicted_words)
-            # 显示预测完成消息
-            QMessageBox.information(self, 'Success', 'Prediction finished!')
-            
-            result_dialog = QDialog(self)
-            result_dialog.setWindowTitle('Prediction Results')
-            result_dialog.setMinimumWidth(400)
-            layout = QVBoxLayout()
-
-            # prediction result
-            results_text = QTextEdit()
-            results_text.setReadOnly(True)
-            results_text.setStyleSheet("font-family: 'Consolas'; font-size: 14px;")
-            text = "Prediction Results:\n\n"
-            for i, word in enumerate(predicted_words):
-                text += f"Trial {i+1:02d}: {word}\n"
-            results_text.setText(text)
-            
-            layout.addWidget(results_text)
-            
-            # OK按钮
-            ok_button = QPushButton('OK')
-            ok_button.clicked.connect(result_dialog.accept)
-            layout.addWidget(ok_button)
-            
-            result_dialog.setLayout(layout)
-            result_dialog.exec_()
-            
-            # 更新状态栏
-            self.statusBar().showMessage(
-                f'Current User: {self.user_name} | ID: {self.user_id} | Status: Test Complete'
-            )
-            
-        except Exception as e:
-            QMessageBox.critical(self, 'Error', f'Test analysis failed: {str(e)}')
-
-
     def show_performance_dialog(self):
-        pass
+        from .performance_dialog import PerformanceDialog
+        if not self.user_name:
+            QMessageBox.warning(self, 'Error', 'Please register first')
+            return 
+        dialog = PerformanceDialog(self)
+        dialog.exec_()

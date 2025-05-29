@@ -1,57 +1,36 @@
 # Imagined_Speech
 ZJU-IIP course project, based on https://osf.io/pq7vb/ Track #3, classify 5 EEG signal.
 
-## 结构建议
-```
-project/
-│
-├── ui/
-│   ├── __init__.py
-│   ├── main_window.py      # 主窗口
-│   ├── register_dialog.py  # 注册对话框
-│   ├── train_widget.py     # 训练界面
-│   └── test_widget.py      # 测试界面
-│
-├── models/                 # 存储训练好的模型
-│   └── user_models/       
-│
-├── utils/
-│   ├── __init__.py
-│   ├── data_loader.py     # 数据加载
-│   ├── model_manager.py   # 模型管理
-│   └── plot_utils.py      # 绘图工具
-│
-├── config.py              # 配置文件
-├── main.py               # 程序入口
-├── ui_main.py              # UI主入口文件
-└── eeg_wavelet_lstm_pipeline.py  # 现有的模型代码
-```
 ## 当前开发结构
 ```
 project/
 │
 ├── ui/
 │   ├── __init__.py
-│   ├── main_window.py      # 主窗口
-│   ├── register_dialog.py  # 注册对话框
-│   ├── train_dialog.py     # 训练界面
-|   ├── saveModel_dialog.py  # 注册对话框
-<!-- │   └── test_widget.py      # 测试界面 -->
+│   ├── main_window.py          # 主窗口
+│   ├── register_dialog.py      # 注册对话框
+│   ├── train_dialog.py         # 训练界面
+|   ├── test_dialog.py          # 测试界面
+|   └── performance_dialog.py   # best model性能界面
 │
-├── models/                 # 存储训练好的模型
-│   └── user_models/       
+├── modelList/                  # 存储训练好的模型
+│   └── .pth files      
 │
 ├── utils/
-<!-- │   ├── __init__.py -->
-<!-- │   ├── data_loader.py     # 数据加载 -->
-<!-- │   ├── model_manager.py   # 模型管理 -->
-│   └── plot_utils.py      # EEG可视化绘图工具
+│   └── plot_utils.py           # EEG可视化绘图工具
 │
-<!-- ├── config.py              # 配置文件 -->
-<!-- ├── main.py               # 程序入口 -->
-├── ui_main.py              # UI主入口文件
-└── eeg_wavelet_lstm_pipeline.py  # 现有的模型代码
+├── ui_main.py                  # UI入口文件
+└── EWLP.py                     # 现有的模型代码
+├── EEG_DATASET/                # 数据集文件
+│   ├── Test_Sample01_preprocess
+|   ├── Training_Sample01_preprocess
+|   └── Validation_Sample01_preprocess
 ```
+## 使用方法
+### 数据集命名规范
+XXX
+### 运行方式
+在project目录下，运行python，对应的指令为`python ui_mian.py`即可运行程序，开始EEG imagined speech模型训练、评估和测试。
 ## UI开发顺序
 1. 创建基本窗口框架
 2. 实现用户注册/登录功能
