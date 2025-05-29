@@ -210,7 +210,7 @@ def extract_wavelet_features(data, wavelet='db4', level=2):
 使用Dropout防止过拟合
 '''
 class EEGWaveletLSTM(nn.Module):
-    def __init__(self, input_dim, hidden_dim=64, num_layers=2, num_classes=2, dropout=0.5):
+    def __init__(self, input_dim, hidden_dim=64, num_layers=2, num_classes=2, dropout=0.7):
         super().__init__()
         self.lstm = nn.LSTM(input_dim, hidden_dim, num_layers=num_layers, batch_first=True, dropout=dropout)
         self.classifier = nn.Sequential(
@@ -315,10 +315,18 @@ def train_model(model, train_loader, val_loader, device, epochs=1000, patience=5
     # 用来保存每个epoch的损失和验证准确率
     train_loss_list = []
     val_acc_list = []
-
     best_acc = 0
     best_state = None
     patience_counter = 0
+
+    # best performance
+    best_performance = {
+        'train_loss':[],
+        'val_acc':[],
+        'final_confusion_matrix': None,
+        'y_true': None,
+        'y_pred': None
+    }
 
     for epoch in range(epochs):
         progress = int((epoch+1)* 100 / epochs)
@@ -362,6 +370,13 @@ def train_model(model, train_loader, val_loader, device, epochs=1000, patience=5
         if acc > best_acc:
             best_acc = acc
             best_state = model.state_dict()
+            # 保存最佳的性能指标
+            best_performance['train_loss'] = train_loss_list
+            best_performance['val_acc'] = val_acc_list
+            best_performance['final_confusion_matrix'] = confusion_matrix(y_true=y_true, y_pred=y_pred)
+            best_performance['y_true'] = y_true
+            best_performance['y_pred'] = y_pred
+
             # torch.save(best_state, "best_model_3fenlei_01.pth")  # ✅ 保存模型参数
             print(f"Best model saved with accuracy: {best_acc:.4f}")
             patience_counter = 0
@@ -379,7 +394,7 @@ def train_model(model, train_loader, val_loader, device, epochs=1000, patience=5
         progress_callback(100, "Training completed!\nClick OK to continue...")
 
 
-    return model, best_acc
+    return model, best_acc, best_performance
 
 # %% 测试集预处理
 def preprocess_file_test(data_path,  out_data_path,  fs=256, lowcut=0.5, highcut=50.0):

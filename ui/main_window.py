@@ -7,11 +7,12 @@ import torch
 import torch.nn as nn
 import torch.optim as optim
 
+import matplotlib.pyplot as plt
 from PyQt5.QtWidgets import *
 from PyQt5.QtCore import *
 from PyQt5.QtGui import *
 from torch.utils.data import DataLoader, TensorDataset
-
+from sklearn.metrics import *
 from utils.plot_utils import EEGCanvas
 # # from eeg_wavelet_lstm_pipeline import *
 # from eeg_wavelet_lstm_pipeline import preprocess_file, extract_wavelet_features, train_model, init_weights
@@ -169,12 +170,15 @@ class MainWindow(QMainWindow):
         train_btn = QPushButton('Train')
         train_btn.clicked.connect(self.show_train_dialog)
         
-        model_list_btn = QPushButton('Model List')
+        # model_list_btn = QPushButton('Model List')
         test_btn = QPushButton('Test')
+        test_btn.clicked.connect(self.show_test_dialog)
+
         performance_btn = QPushButton('Performance') # model performance
+        performance_btn.clicked.connect(self.show_performance_dialog)
         
         # 将按钮添加到布局
-        for btn in [register_btn, train_btn, model_list_btn, test_btn, performance_btn]:
+        for btn in [register_btn, train_btn, test_btn, performance_btn]:
             control_layout.addWidget(btn)
             
         control_panel.setLayout(control_layout)
@@ -295,7 +299,7 @@ class MainWindow(QMainWindow):
                 progress.setValue(total_progress)
                 QApplication.processEvents()
 
-            for seed in range(TOTAL_SEEDS):
+            for seed in range(210, 212):
                 set_seed(seed)
                 progress.setLabelText(f"Training with seed {seed}...")
                 model = EEGWaveletLSTM(input_dim=train_features.shape[2])
@@ -314,7 +318,7 @@ class MainWindow(QMainWindow):
                         torch.tensor(val_labels, dtype=torch.long)),
                     batch_size=64
                 )
-                trained_model, final_acc = train_model(
+                trained_model, final_acc, best_performance = train_model(
                     model=model,
                     train_loader=train_loader,
                     val_loader=val_loader,
@@ -330,14 +334,24 @@ class MainWindow(QMainWindow):
                     best_model = trained_model
 
             if best_model is not None:
-                best_model_save_path = save_path
-                torch.save(best_model.state_dict(),best_model_save_path)
+                model_info = {
+                    'model_state': best_model.state_dict(),
+                    'performance': best_performance,
+                    'best_seed': best_seed,
+                    'best_acc': best_acc
+                }
+                torch.save(model_info, os.path.join(save_path, f'model_name'))
+                # best_model_save_path = save_path
+                # torch.save(best_model.state_dict(),best_model_save_path)
+                # 保存best model的performance（验证准确率曲线val_acc_list，训练损失曲线train_loss_list，混淆矩阵Confusion Matrix
+                # 可能还需要在train_model里面增加对上述变量的返回，返回类型应该是一个seed下的列表，不断迭代，最终只保留最好的best model情况下的这些列表
+                # 后续用于performance时对模型性能的显示）
 
             # 保存model
-            model_path = os.ath.join(save_path, f'{model_name}.pth')
+            model_path = os.path.join(save_path, f'{model_name}.pth')
             os.makedirs(save_path, exist_ok=True)
             torch.save(best_model.state_dict(), model_path)
-            print(f"best model saved:{best_model_save_path}")
+            # print(f"best model saved:{best_model_save_path}")
 
 
             progress.setLabelText("Training completed!")
@@ -357,9 +371,7 @@ class MainWindow(QMainWindow):
             # 更新状态
             self.statusBar().showMessage(
                 f'Current User: {self.user_name} | ID: {self.user_id} | Status: Model Saved')
-            # QMessageBox.information(self, 'Success', 
-            #                         f'Model training completed!\n Saved to: {model_path}')
-
+            
             # 清理临时文件夹
             import shutil
             shutil.rmtree("temp_process", ignore_errors=True)
@@ -408,36 +420,30 @@ class MainWindow(QMainWindow):
             return
         
         try:
-            # 1. 选择模型文件
-            model_path, _ = QFileDialog.getOpenFileName(
+            model_path, _ = QFileDialog.getOpenFileName(# 选择模型文件
                 self,
                 "Select Model File",
                 "./models",  # 默认打开模型保存目录
                 "PyTorch Models (*.pth)"
             )
-            
             if not model_path:
                 return
                 
-            # 2. 选择测试数据文件
-            test_data_path, _ = QFileDialog.getOpenFileName(
+            test_data_path, _ = QFileDialog.getOpenFileName(# 选择测试数据文件
                 self,
                 "Select Test Data File",
-                "./Test_set_npy",  # 默认打开测试集目录
+                "EEG_DATASET/Test_Sample01_preprocess",  # 默认打开测试集目录
                 "NPY Files (*.npy)"
             )
-            
             if not test_data_path:
                 return
             
-            # 3. 验证测试文件的用户ID
-            basename = os.path.basename(test_data_path)
-            match = re.match(r'Data_Sample(\d{2})_data\.npy', basename)
-            
+            basename = os.path.basename(test_data_path)# 验证测试文件的用户ID
+            match = re.match(r'Data_Sample(\d{2})_data_pre\.npy', basename)
             if not match:
                 QMessageBox.warning(self, 'Error', 'Invalid test file format')
                 return
-                
+    
             file_user_id = match.group(1)
             if file_user_id != self.user_id:
                 QMessageBox.warning(
@@ -447,13 +453,75 @@ class MainWindow(QMainWindow):
                 )
                 return
                 
-            # 4. 更新状态栏
-            self.statusBar().showMessage(
+            
+            self.statusBar().showMessage(# 更新状态栏
                 f'Current User: {self.user_name} | ID: {self.user_id} | Status: Testing...'
             )
             
-            # 5. 开始测试
             self.run_test(model_path, test_data_path)
             
         except Exception as e:
             QMessageBox.critical(self, 'Error', f'Test failed: {str(e)}')
+
+
+    def run_test(self, model_path, test_data_path):
+        try:
+            device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
+            test_data = np.load(test_data_path)
+            test_features = extract_wavelet_features(test_data)
+            test_X = torch.tensor(test_features, dtype=torch.float32).to(device)
+            
+            # 加载本地训练后模型
+            model = EEGWaveletLSTM(input_dim=test_features.shape[2])
+            model.load_state_dict(torch.load(model_path, map_location=device))
+            model.to(device)
+            model.eval()
+            
+            # 预测
+            with torch.no_grad():
+                outputs = model(test_X)
+                predictions = outputs.argmax(dim=1).cpu().numpy()
+                probs = torch.softmax(outputs, dim=1).cpu().numpy()
+            # 结果映射
+            label_to_word = {0: "Hello", 1: "Stop"}
+            predicted_words = [label_to_word[pred] for pred in predictions]
+            
+            print("Predictions:", predicted_words)
+            # 显示预测完成消息
+            QMessageBox.information(self, 'Success', 'Prediction finished!')
+            
+            result_dialog = QDialog(self)
+            result_dialog.setWindowTitle('Prediction Results')
+            result_dialog.setMinimumWidth(400)
+            layout = QVBoxLayout()
+
+            # prediction result
+            results_text = QTextEdit()
+            results_text.setReadOnly(True)
+            results_text.setStyleSheet("font-family: 'Consolas'; font-size: 14px;")
+            text = "Prediction Results:\n\n"
+            for i, word in enumerate(predicted_words):
+                text += f"Trial {i+1:02d}: {word}\n"
+            results_text.setText(text)
+            
+            layout.addWidget(results_text)
+            
+            # OK按钮
+            ok_button = QPushButton('OK')
+            ok_button.clicked.connect(result_dialog.accept)
+            layout.addWidget(ok_button)
+            
+            result_dialog.setLayout(layout)
+            result_dialog.exec_()
+            
+            # 更新状态栏
+            self.statusBar().showMessage(
+                f'Current User: {self.user_name} | ID: {self.user_id} | Status: Test Complete'
+            )
+            
+        except Exception as e:
+            QMessageBox.critical(self, 'Error', f'Test analysis failed: {str(e)}')
+
+
+    def show_performance_dialog(self):
+        pass
