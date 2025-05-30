@@ -1,7 +1,7 @@
 # Imagined_Speech
 ZJU-IIP course project, based on https://osf.io/pq7vb/ Track #3, classify 5 EEG signal.
 
-## 当前开发结构
+## 项目结构
 ```
 project/
 │
@@ -10,7 +10,7 @@ project/
 │   ├── main_window.py          # 主窗口
 │   ├── register_dialog.py      # 注册对话框
 │   ├── train_dialog.py         # 训练界面
-|   ├── test_dialog.py          # 测试界面
+│   ├── test_dialog.py          # 测试界面
 |   └── performance_dialog.py   # best model性能界面
 │
 ├── modelList/                  # 存储训练好的模型
@@ -20,11 +20,11 @@ project/
 │   └── plot_utils.py           # EEG可视化绘图工具
 │
 ├── ui_main.py                  # UI入口文件
-└── EWLP.py                     # 现有的模型代码
-├── EEG_DATASET/                # 数据集文件
-│   ├── Test_Sample01_preprocess
-|   ├── Training_Sample01_preprocess
-|   └── Validation_Sample01_preprocess
+├── EWLP.py                     # 现有的模型代码
+└── EEG_DATASET/                # 数据集文件
+    ├── Test_Sample01_preprocess
+    ├── Training_Sample01_preprocess
+    └── Validation_Sample01_preprocess
 ```
 
 ## 数据集命名规范
@@ -58,8 +58,9 @@ project/
 ### 可执行文件Imagined Speech.exe运行方式
 推荐将EEG_DATASET和.exe文件放在同一个目录下，直接使用exe文件运行。
 
-## requirements
+## Requirements and Environment
 ```
+python==3.13.2
 pyqt5==5.15.11
 numpy==2.2.5
 sklearn==1.6.1

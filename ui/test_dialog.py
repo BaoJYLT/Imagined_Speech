@@ -49,13 +49,6 @@ class TestDialog(QDialog):
             f'Current User: {self.parent.user_name} | ID: {self.user_id} | Status: Test Mode'
         )
         self.setLayout(layout)
-        # test_btn = QPushButton('Select Test Data')
-        # test_btn.clicked.connect(self.select_test_file)
-        # layout.addWidget(test_btn)
-        # self.parent.statusBar().showMessage(
-        #         f'Current User: {self.parent.user_name} | ID: {self.user_id} | Status: Test Mode'
-        #     )
-        # self.setLayout(layout)
 
     def select_model_file(self):
         self.model_path, _ = QFileDialog.getOpenFileName(

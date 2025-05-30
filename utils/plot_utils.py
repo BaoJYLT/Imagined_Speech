@@ -44,6 +44,5 @@ class EEGCanvas(FigureCanvasQTAgg):
             title = f'User {user_id} First Trail EEG Signal'
         self.axes.set_title(title, fontsize=14, pad=5)
         self.axes.grid(True)
-        # self.axes.legend(fontsize=10)
         # 重新绘制画布
         self.draw()

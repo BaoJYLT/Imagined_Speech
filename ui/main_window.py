@@ -85,13 +85,6 @@ class MainWindow(QMainWindow):
         
     def create_plot_area(self):
         # 使用matplotlib创建绘图区域
-        '''
-        plot_label = QLabel('EEG Plot Area')
-        plot_label.setStyleSheet('background-color: white; border: 1px solid black;')
-        plot_label.setMinimumHeight(400)  # 设置最小高度
-        plot_label.setAlignment(Qt.AlignCenter)
-        self.centralWidget().layout().addWidget(plot_label)
-        '''
         plot_widget = QWidget()
         plot_layout = QVBoxLayout()
         plot_widget.setLayout(plot_layout)
@@ -106,14 +99,7 @@ class MainWindow(QMainWindow):
         main_layout.addWidget(plot_widget)
         # 确保窗口大小变化时EEG显示区域也相应调整
         self.resizeEvent = lambda event: plot_widget.setFixedHeight(int(self.height() * 0.75))
-        '''
-        # 设置绘图区域的大小策略
-        plot_widget.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Expanding)
-        # 将绘图区域添加到主布局
-        main_layout = self.centralWidget().layout()
-        main_layout.addWidget(plot_widget, stretch=50)  # 设置stretch为75表示占用75%的空间
-        # self.centralWidget().layout().addWidget(self.eeg_canvas)'
-        '''
+        
 
     def update_eeg_display(self, user_id):
         """更新EEG显示区域"""
